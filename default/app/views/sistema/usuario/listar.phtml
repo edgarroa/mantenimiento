@@ -1,0 +1,100 @@
+<?php View::notify(); ?>
+
+<script type="text/javascript">
+    $(function() {
+        $('table').dwGrid({
+            form_search: true,
+            form_action: '<?php echo PUBLIC_PATH; ?>sistema/usuario/buscar/',
+            form_load_data : 'dw-shell-content',
+            order_attr: '<?php echo (APP_AJAX) ? 'class="dw-ajax dw-spinner"' : ''; ?>',
+            order_action: $.KumbiaPHP.publicPath+"sistema/usuario/listar/"
+        });
+    });
+</script>
+
+<div class="container-fluid dw-shell-view">
+
+    <?php View::process($page_module, $page_title, $set_title); ?>
+
+    <div class="btn-toolbar btn-toolbar-top">
+        <div class="btn-actions">
+            <?php echo DwHtml::button("sistema/usuario/agregar/", 'agregar', array('class'=>'btn-success'), 'check', APP_AJAX); ?>
+        </div>
+    </div>
+
+    <div class="dw-overflow" id="data-result">
+
+        <table class="table table-bordered table-hover table-striped table-condensed table-responsive">
+            <thead>
+                <tr>
+                    <th>NUM</th>
+                    <th class="col-collapse" data-search="login">LOGIN</th>
+                    <th class="col-collapse" data-search="nombres">NOMBRES</th>
+                    <th class="col-collapse" data-search="apellidos">APELLIDOS</th>
+                    <th class="col-collapse" data-search="email">EMAIL</th>
+                    <th class="col-collapse" data-search="perfil">PERFIL</th>
+                    <?if(APP_OFFICE) { //Si está activa la opción de oficinas ?>
+                    <th class="col-collapse" data-search="sucursal">SUCURSAL</th>
+                    <? } ?>
+                    <th class="col-collapse" data-search="estado_usuario">ESTADO</th>
+                    <th class="btn-actions no-responsive" style="width: 150px;">ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach($usuarios->items as $usuario): ?>
+                    <?php $key_shw = DwSecurity::getKey($usuario->id, 'shw_usuario'); ?>
+                    <?php $key_upd = DwSecurity::getKey($usuario->id, 'upd_usuario'); ?>
+                    <?php $key_ina = DwSecurity::getKey($usuario->id, 'bloquear_usuario'); ?>
+                    <?php $key_rea = DwSecurity::getKey($usuario->id, 'reactivar_usuario'); ?>
+                    <tr>
+                        <td><?php echo $usuarios->counter; ?></td>
+                        <td><?php echo $usuario->login; ?></td>
+                        <td><?php echo $usuario->nombres; ?></td>
+                        <td><?php echo $usuario->apellidos; ?></td>
+                        <td><?php echo $usuario->email; ?></td>
+                        <td><?php echo $usuario->perfil; ?></td>
+                        <?if(APP_OFFICE) { //Si está activa la opción de oficinas ?>
+                        <td><?php echo empty($usuario->sucursal) ? 'Todas' : $usuario->sucursal; ?></td>
+                        <? } ?>
+                        <td><?php 
+                        switch($usuario->estatus){
+							case 0:
+								echo '<span class="label label-warning" title="'.$usuario->descripcion.'" rel="tooltip">Nuevo</span>';
+							break;
+
+							case 1:
+								echo '<span class="label label-success" title="'.$usuario->descripcion.'" rel="tooltip">Activo</span>' ;
+							break;
+							
+							case 2:
+								echo '<span class="label label-important" title="'.$usuario->descripcion.'" rel="tooltip">Bloqueado</span>';
+							break;
+						}
+                      ?>
+                      </td>
+                        <td>
+                            <?php echo DwHtml::buttonTable('Ver usuario', "sistema/usuario/ver/$key_shw/", NULL, 'warning', 'search'); ?>
+                            <?php echo DwHtml::buttonTable('Modificar usuario', "sistema/usuario/editar/$key_upd/", NULL, 'info', 'edit'); ?>
+                            <?php
+                            switch($usuario->estatus){
+								case 0:
+									echo DwHtml::buttonTable('Bloquear usuario', "sistema/usuario/estado/bloquear/$key_ina/", array('class'=>'js-confirm', 'confirm-title'=>'Bloquear Usuario', 'confirm-body'=>'¿ Está seguro de Bloquear el usuario?.'), 'warning', 'flag');
+								break;
+								case 1:
+									 echo DwHtml::buttonTable('Bloquear usuario', "sistema/usuario/estado/bloquear/$key_ina/", array('class'=>'js-confirm', 'confirm-title'=>'Bloquear Usuario', 'confirm-body'=>'¿ Está seguro de Bloquear el usuario?.'), 'success', 'flag');
+								break;
+								
+								case 2:
+									echo DwHtml::buttonTable('Reactivar usuario', "sistema/usuario/estado/reactivar/$key_rea/", array('class'=>'js-confirm', 'confirm-title'=>'Activar Usuario', 'confirm-body'=>'¿ Está seguro de Activar el usuario?.') , 'danger', 'flag');
+								break;
+							} ?>
+                      </td>
+                    </tr>
+                    <?php $usuarios->counter++; ?>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php View::partial('paginators/default', false, array('page'=>$usuarios, 'url'=>"sistema/usuario/listar/$order/")); ?>
+
+</div>
