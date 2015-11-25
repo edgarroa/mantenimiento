@@ -1,20 +1,5 @@
 <?php
-/**
- * infoalex
- *
- * @category
- * @package     Models Equipo
- * @subpackage
- * @author      ALEXIS BORGES TUAALEXIS@GMAIL.COM
- * @copyright    
- */
 class Equipo extends ActiveRecord {
-    
-    /**
-     * Constante para definir el id de la oficina principal
-     */
-    const OFICINA_PRINCIPAL = 1;
-
     /**
      * Método para definir las relaciones y validaciones
      */
@@ -26,12 +11,22 @@ class Equipo extends ActiveRecord {
      * @param int|string $id
      * @return Sucursal
      */
-    public function getInformacionEquipo($id, $isSlug=false) {
-        $id = ($isSlug) ? Filter::get($id, 'string') : Filter::get($id, 'numeric');
-        $columnas = 'equipo.*';
-        $join = '';
-        $condicion = "equipo.id = '$id'";
-        return $this->find_first("columns: $columnas", "join: $join", "conditions: $condicion");
+    public function getInformacionEquipo($id) {
+        $columnas = ' E.id, E.codigo, E.nombre, E.activo_fijo, E.fecha_registro, E.fecha_compra, E.caracteristicas, E.funcionamiento, E.observaciones observacion, F.nombre fabricante, S.sector';
+        $join = " AS E INNER JOIN fabricante F ON E.fabricante_id = F.id ";
+        $join.= " INNER JOIN sector S ON E.sector_id = S.id ";
+        $condicion = "E.id = '$id'";
+        return $this->find("columns: $columnas", "join: $join ", "conditions: $condicion");
+    }
+
+    public function getInformacionEquipoFull($id) {
+        $columnas = ' E.id, E.codigo, E.nombre, E.activo_fijo, E.fecha_registro, E.fecha_compra, E.caracteristicas, E.funcionamiento, E.observaciones observacion, F.nombre fabricante, S.sector, M.nombre modelo, MA.nombre marca';
+        $join = " AS E INNER JOIN fabricante F ON E.fabricante_id = F.id ";
+        $join.= " INNER JOIN sector S ON E.sector_id = S.id ";
+        $join.= " INNER JOIN modelo M ON E.modelo_id = M.id ";
+        $join.= " INNER JOIN marca MA ON M.marca_id = MA.id ";
+        $condicion = "E.id = '$id'";
+        return $this->find_first("columns: $columnas", "join: $join ", "conditions: $condicion");
     } 
     
     /**
@@ -41,16 +36,19 @@ class Equipo extends ActiveRecord {
      * @return ActiveRecord
      */
     public function getListadoEquipo($order='order.descripcion.asc', $page='', $empresa=null) {
-        $columns = 'equipo.*';
-        $join = '';        
+        $columns = 'equipo.*, fabricante.nombre fabricante, modelo.nombre modelo, marca.nombre marca , proveedor.nombre proveedor ';
+        $join = ' INNER JOIN fabricante ON equipo.fabricante_id = fabricante.id ';        
+        $join .= ' INNER JOIN proveedor ON equipo.proveedor_id = proveedor.id';        
+        $join .= ' INNER JOIN modelo ON equipo.modelo_id = modelo.id';        
+        $join .= ' INNER JOIN marca ON modelo.marca_id = marca.id';        
         $conditions = "";
         $order = $this->get_order($order, 'equipo', array('equipo'=>array('ASC'=>'equipo.descripcion ASC, equipo.tipo_equipo ASC',
                                                                               'DESC'=>'equipo.descripcion DESC, equipo.tipo_equipo ASC',
                                                                               )));
         if($page) {                
-            return $this->paginated("columns: $columns", "order: $order", "page: $page");
+            return $this->paginated("columns: $columns", "order: $order", "join: $join","page: $page");
         } else {
-            return $this->find("columns: $columns", "order: $order", "page: $page");            
+            return $this->find("columns: $columns", "order: $order", "join: $join" ,"page: $page");            
         }
     }
     
@@ -68,10 +66,6 @@ class Equipo extends ActiveRecord {
         if ($optData) {
             $obj->dump_result_self($optData);
         }   
-        
-        /*if($method!='delete') {
-            $obj->ciudad_id = Ciudad::setCiudad($obj->ciudad)->id;        
-        }*/
         $rs = $obj->$method();
         
         return ($rs) ? $obj : FALSE;
@@ -95,14 +89,17 @@ class Equipo extends ActiveRecord {
             return $this->find("columns: $columnas", "join: $join", "conditions: $conditions", "order: $order", "page: $page");            
         }
     }
-
-
-
-
     /**
      * Método que se ejecuta antes de guardar y/o modificar     
      */
-    public function before_save() {        
+    public function before_save() {
+        //formatenado todo a mayusculas
+        $this->codigo = strtoupper($this->codigo);
+        $this->fecha_registro = date("Y-m-d");
+        $this->nombre = strtoupper($this->nombre);
+        $this->observacion = strtoupper($this->observacion);
+        $this->caracteristicas = strtoupper($this->caracteristicas);
+        $this->funcionamiento = strtoupper($this->funcionamiento);
     }
     
     /**

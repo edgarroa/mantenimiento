@@ -4,3 +4,6 @@ default/app/temp/
 .env
 composer.phar
 composer.lock
+.idea
+default/app/config/databases.ini
+databases.ini

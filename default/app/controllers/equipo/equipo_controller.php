@@ -1,37 +1,14 @@
 <?php
 /**
- * UPTP - (PNFI Sección 1236) 
- *
  * Descripcion: Controlador que se encarga de la gestión de las profesiones de la empresa
- *
- * @category    
- * @package     Controllers 
- * @author      ALexis Borges (tuaalexis@gmail.com)
- * @copyright   Copyright (c) 2014 UPTP - (PNFI Team) (https://github.com/ArrozAlba/SASv2)
- * 
- *Load::models('solicitudes/factura', 'solicitudes/factura_dt');
- *Load::models('config/tiposolicitud');
- *Load::models('proveedorsalud/proveedor');
- *Load::models('proveedorsalud/servicio');
- *Load::models('proveedorsalud/medicoreembolso');
- *Load::models('proveedorsalud/especialidad');
- *Load::models('beneficiarios/titular');
- *Load::models('beneficiarios/beneficiario', 'solicitudes/solicitud_servicio', 'solicitudes/hequipo');
- *Load::models('config/patologia', 'solicitudes/solicitud_servicio_patologia', 'solicitudes/solicitud_servicio_factura');
 */
- Load::models('equipo/equipo');
+Load::models('equipo/equipo', 'config/equipo_parte');
 
 class EquipoController extends BackendController {
-    /**
-     * Constante para definir el tipo de solicitud
-     */
-    const TPS = 7;
-    /**
-     * Método que se ejecuta antes de cualquier acción
-     */
+   
     protected function before_filter() {
         //Se cambia el nombre del módulo actual
-        $this->page_module = 'Solicitudes';
+        $this->page_module = 'Equipos/Maquinarias';
     }
     /**
      * Método principal
@@ -57,6 +34,39 @@ class EquipoController extends BackendController {
         $this->field = $field;
         $this->value = $value;
         $this->page_title = 'Búsqueda de Reemnbolsos del sistema';        
+    }
+    /**
+    * Metodo para imprimir la ficha del equipo
+    */
+    public function reporte_ficha_maquina($equipo_id)
+    {
+        View::template(NULL);       
+        if(empty($equipo_id)) {
+            DwMessage::info('No se ha seleccionado un equipo');
+            return DwRedirect::toAction('listar');
+        }
+
+        $equipo_parte = new EquipoParte();
+        $ObjEquipo = new Equipo();
+        $equipo_reporte = $ObjEquipo->getInformacionEquipoFull($equipo_id);
+        $this->partes  = $equipo_parte->getInformacionEquipoConPartes($equipo_id);
+              
+        $this->codigo = $equipo_reporte->codigo;
+        $this->nombre = $equipo_reporte->nombre;
+        $this->activo_fijo = $equipo_reporte->activo_fijo;
+        $this->fecha_registro = $equipo_reporte->fecha_registro;
+        $this->fecha_compra = $equipo_reporte->fecha_compra;
+        $this->caracteristicas = $equipo_reporte->caracteristicas;
+        $this->funcionamiento = $equipo_reporte->funcionamiento;
+        $this->observacion = $equipo_reporte->observacion;
+        $this->fabricante = $equipo_reporte->fabricante;
+        $this->sector = $equipo_reporte->sector;
+        $this->modelo = $equipo_reporte->modelo;
+        $this->marca = $equipo_reporte->marca;
+
+
+
+
     }    
 
 
@@ -65,8 +75,8 @@ class EquipoController extends BackendController {
      */
     public function listar($order='order.nombre.asc', $page='pag.1') { 
         $page = (Filter::get($page, 'page') > 0) ? Filter::get($page, 'page') : 1;
-        #$solicitud_equipo = new SolicitudServicio();        
-        #$this->solicitud_equipos = $solicitud_equipo->getListadoSolicitudServicio($order, $page);
+        $equipo = new Equipo();        
+        $this->equipos = $equipo->getListadoEquipo($order, $page);
         $this->order = $order;        
         $this->page_title = 'Listado de Equipos y Maquinarias';
     }
@@ -104,72 +114,44 @@ class EquipoController extends BackendController {
      * Método para agregar
      */
     public function agregar() {
+
+        if(Input::hasPost('equipo')) {
+            if(Equipo::setEquipo('create', Input::post('equipo'))) {
+                DwMessage::valid('El Equipo se ha registrado correctamente!');
+                return DwRedirect::toAction('listar');
+            }            
+        } 
         //cierre del condicional del Input(post)
         $this->page_title = 'Agregar Equipo Maquinaria';
     }//CIERRE DE la funcion agregar
-
-    /**
-    * Método para cargar las facturas en caso que de los reeembolso tengan mas de una
-    */
-    public function facturar($key){
-        if(!$id = DwSecurity::isValidKey($key, 'upd_solicitud_servicio', 'int')) {
-            return DwRedirect::toAction('registro');
-        }
-        $solicitud_servicio = new SolicitudServicio();
-        $obj = new SolicitudServicioPatologia();
-        //$factura = new Factura();
-        $factura_dt = new FacturaDt();
-        $this->sol =  $obj->getInformacionSolicitudServicioPatologia($id);
-        if(!$solicitud_servicio->getInformacionSolicitudServicio($id)) {            
+        /**
+     * Método para agregar
+     */
+    public function agregar_partes($key) {
+        if(!$id = DwSecurity::isValidKey($key, 'piece_equipo', 'int')) {
+            return DwRedirect::toAction('listar');
+        } 
+        $equipo = new Equipo();
+        if(!$equipo->getInformacionEquipo($id)) {            
             DwMessage::get('id_no_found');
-            return DwRedirect::toAction('registro');
+            return DwRedirect::toAction('listar');
         }
-        if(Input::hasPost('factura')) {
-            ActiveRecord::beginTrans();
-            $factu = Factura::setFactura('create', Input::post('factura'));
-            if($factu){
-                if(FacturaDt::setFacturaDt(Input::post('descripcion'), Input::post('cantidad'), Input::post('monto'), Input::post('exento'), $factu->id)) {
-                    $solfactura = SolicitudServicioFactura::setSolicitudServicioFactura($factu->id, $id);
-                    if($solfactura){
-                        if(Input::post('multifactura')){ //para saber si va a cargar multiples facturas sobre esa solicitud 
-                            $solser = $solicitud_servicio->getInformacionSolicitudServicio($id);
-                            $solser->estado_solicitud="G"; //estado G parcialmente facturada 
-                            $solser->save();
-                            ActiveRecord::commitTrans();
-                            DwMessage::valid('Se ha cargado la factura exitosamente!');
-                            $key_upd = DwSecurity::getKey($id, 'upd_solicitud_servicio'); 
-                            return DwRedirect::toAction('facturar/'.$key_upd);   //retorna a la misma visata de facturacion 
-                        }
-                        else{
-                            $solser = $solicitud_servicio->getInformacionSolicitudServicio($id);
-                            $solser->estado_solicitud="F";
-                            $solser->save();
-                            ActiveRecord::commitTrans();
-                            DwMessage::valid('Se ha cargado la factura exitosamente!');
-                          return DwRedirect::toAction('facturacion');     
-                        }
+        $equipo_parte = new EquipoParte();
+        $maquinaria = $equipo_parte->getInformacionEquipoConPartes($id);
 
-                    }
-                    else{
-                        ActiveRecord::rollbackTrans();
-                        DwMessage::error('No se pudo enviar a cargar multiples facturas!');
-                    }
-
-                }
-                else{
-                    ActiveRecord::rollbackTrans();
-                    DwMessage::error('Los detalles de la Factura no se han cargado correctamente Intente de nuevo!');
-                }
-            }
-            else{
-                ActiveRecord::rollbackTrans();
-                DwMessage::error('La Factura ha dao peos!');
-            }
+        $this->equipos=$equipo->getInformacionEquipo($id);
+        $ids = DwSecurity::getKey($id, 'piece_equipo');
+        if(Input::hasPost('equipo_parte')) {
+            if(EquipoParte::setEquipoParte('create', Input::post('equipo_parte'))) {
+                DwMessage::valid('La Parte se ha registrado correctamente!');
+                return DwRedirect::toAction('agregar_partes/'.$ids);
+            }            
         }
-        $this->solicitud_servicio = $solicitud_servicio;
-        $this->page_title = 'Cargar Facturas a la solicitud';        
-    }
-    
+        $this->maquinarias = $maquinaria;
+        //cierre del condicional del Input(post)
+        $this->page_title = 'Agregar Partes de Maquinaria';
+        
+    }//CIERRE DE la funcion agregar
   
     /**
     *Metodo para aprobar las solicitudes (Cambiar de Estatus)
